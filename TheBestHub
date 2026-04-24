@@ -1,0 +1,132 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+
+local config = {
+    espEnabled = false,
+    teamCheck = false,
+    outlineColor = Color3.fromRGB(255, 255, 255)
+}
+
+-- 1. Create UI with Snow & Modern Polishing
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "Bloxstrike_Final_V10"
+screenGui.ResetOnSpawn = false
+
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Size = UDim2.new(0, 240, 0, 180)
+mainFrame.Position = UDim2.new(0.5, -120, 0.4, -90)
+mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+mainFrame.BackgroundTransparency = 0.15
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
+
+-- Snow Particles
+task.spawn(function()
+    while true do
+        local flake = Instance.new("Frame", mainFrame)
+        flake.Size = UDim2.new(0, 2, 0, 2)
+        flake.Position = UDim2.new(math.random(), 0, -0.1, 0)
+        flake.BackgroundColor3 = Color3.new(1, 1, 1)
+        flake.BackgroundTransparency = 0.4
+        Instance.new("UICorner", flake).CornerRadius = UDim.new(1, 0)
+        
+        TweenService:Create(flake, TweenInfo.new(math.random(2, 4), Enum.EasingStyle.Linear), {Position = UDim2.new(flake.Position.X.Scale + 0.1, 0, 1.1, 0)}):Play()
+        task.wait(0.25)
+        game:GetService("Debris"):AddItem(flake, 4)
+    end
+end)
+
+local title = Instance.new("TextLabel", mainFrame)
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Text = "BLOXSTRIKE ULTIMATE"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.GothamBold
+title.BackgroundTransparency = 1
+
+local function createBtn(pos, text)
+    local btn = Instance.new("TextButton", mainFrame)
+    btn.Size = UDim2.new(1, -30, 0, 40)
+    btn.Position = pos
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamSemibold
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    return btn
+end
+
+local espBtn = createBtn(UDim2.new(0, 15, 0, 50), "ESP: OFF")
+local teamBtn = createBtn(UDim2.new(0, 15, 0, 100), "TEAM CHECK: OFF")
+
+-- 2. DRAGGING (Fixed)
+local dragging, dragInput, dragStart, startPos
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true; dragStart = input.Position; startPos = mainFrame.Position
+    end
+end)
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+end)
+game:GetService("UserInputService").InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+RunService.RenderStepped:Connect(function()
+    if dragging and dragInput then
+        local delta = dragInput.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- 3. THE "BLOXSTRIKE" TEAM SOLVER
+local function getTeam(p)
+    -- Check Attributes (Bloxstrike uses these for rounds)
+    if p:GetAttribute("Team") then return tostring(p:GetAttribute("Team")) end
+    
+    -- Check for 'Team' folder in Character
+    if p.Character and p.Character:FindFirstChild("Team") then return p.Character.Team.Value end
+    
+    -- Check Display Color
+    return tostring(p.TeamColor)
+end
+
+-- 4. ESP LOOP
+RunService.Heartbeat:Connect(function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= localPlayer and p.Character then
+            local highlight = p.Character:FindFirstChild("V10Highlight")
+            if not highlight then
+                highlight = Instance.new("Highlight", p.Character)
+                highlight.Name = "V10Highlight"
+                highlight.FillTransparency = 1
+                highlight.OutlineColor = config.outlineColor
+            end
+
+            local visible = config.espEnabled
+            if visible and config.teamCheck then
+                if getTeam(p) == getTeam(localPlayer) then
+                    visible = false
+                end
+            end
+            highlight.Enabled = visible
+        end
+    end
+end)
+
+-- 5. TOGGLES
+espBtn.MouseButton1Click:Connect(function()
+    config.espEnabled = not config.espEnabled
+    espBtn.Text = config.espEnabled and "ESP: ON" or "ESP: OFF"
+    espBtn.BackgroundColor3 = config.espEnabled and Color3.fromRGB(0, 150, 70) or Color3.fromRGB(30, 30, 30)
+end)
+
+teamBtn.MouseButton1Click:Connect(function()
+    config.teamCheck = not config.teamCheck
+    teamBtn.Text = config.teamCheck and "TEAM CHECK: ON" or "TEAM CHECK: OFF"
+    teamBtn.BackgroundColor3 = config.teamCheck and Color3.fromRGB(0, 100, 200) or Color3.fromRGB(30, 30, 30)
+    print("My Team: " .. getTeam(localPlayer)) -- Debugging
+end)
